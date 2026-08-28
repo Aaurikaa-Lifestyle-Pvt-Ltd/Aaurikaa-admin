@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Button,
   Card,
@@ -40,6 +41,12 @@ export default function GalleryPage() {
   const [typeFilter, setTypeFilter] = useState<MediaType | "all">("all");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    total: number;
+    completed: number;
+    failed: number;
+  } | null>(null);
+  const [mounted, setMounted] = useState(false);
   const [preview, setPreview] = useState<AdminMediaAsset | null>(null);
   const [editName, setEditName] = useState("");
   const [editAlt, setEditAlt] = useState("");
@@ -64,21 +71,53 @@ export default function GalleryPage() {
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   async function handleUpload(files: FileList | null) {
     if (!files?.length) return;
+    const fileList = Array.from(files);
+    const total = fileList.length;
+    let completed = 0;
+    let failed = 0;
+    let lastError: string | null = null;
+
     setUploading(true);
     setUploadError(null);
-    try {
-      for (const file of Array.from(files)) {
+    setUploadProgress({ total, completed: 0, failed: 0 });
+
+    for (const file of fileList) {
+      try {
         await uploadAdminMedia({ file, displayName: file.name });
+        completed += 1;
+      } catch (err) {
+        failed += 1;
+        lastError = err instanceof ApiError ? err.message : "Upload failed.";
       }
+      setUploadProgress({ total, completed, failed });
+    }
+
+    setUploading(false);
+    setUploadProgress(null);
+
+    if (completed > 0) {
       setPage(1);
-      toast.success(files.length === 1 ? "Media uploaded" : `${files.length} files uploaded`);
       await mediaQuery.reload();
-    } catch (err) {
-      setUploadError(err instanceof ApiError ? err.message : "Upload failed.");
-    } finally {
-      setUploading(false);
+    }
+
+    if (completed === total) {
+      toast.success(total === 1 ? "Media uploaded" : `${completed} files uploaded`);
+    } else if (completed > 0) {
+      toast.success(`${completed} of ${total} files uploaded`);
+      setUploadError(
+        lastError
+          ? `${failed} file${failed === 1 ? "" : "s"} failed: ${lastError}`
+          : `${failed} file${failed === 1 ? "" : "s"} failed.`,
+      );
+    } else {
+      setUploadError(lastError ?? "Upload failed.");
+      toast.error(lastError ?? "Upload failed.");
     }
   }
 
@@ -156,6 +195,33 @@ export default function GalleryPage() {
           </label>
         }
       />
+
+      {uploading && uploadProgress ? (
+        <div role="status" aria-live="polite">
+          <Card className="mb-3 p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">
+                Uploading {uploadProgress.completed + uploadProgress.failed} of {uploadProgress.total}
+                …
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {uploadProgress.completed} succeeded
+                {uploadProgress.failed > 0 ? ` · ${uploadProgress.failed} failed` : ""}
+              </p>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all duration-200"
+                style={{
+                  width: `${Math.round(
+                    ((uploadProgress.completed + uploadProgress.failed) / uploadProgress.total) * 100,
+                  )}%`,
+                }}
+              />
+            </div>
+          </Card>
+        </div>
+      ) : null}
 
       {uploadError ? (
         <p className="mb-3 text-sm text-danger" role="alert">
@@ -269,74 +335,82 @@ export default function GalleryPage() {
         </>
       )}
 
-      {preview ? (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            aria-label="Close preview"
-            onClick={() => setPreview(null)}
-          />
-          <Card className="relative z-[71] max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-[var(--radius-md)] sm:rounded-[var(--radius-md)]">
-            <div className="border-b border-border px-4 py-3 sm:px-5">
-              <p className="text-sm font-semibold">Media preview</p>
-              <p className="text-xs text-muted-foreground">
-                {preview.createdAt ? formatDateTime(preview.createdAt) : "—"}
-              </p>
-            </div>
-            <div className="space-y-4 p-4 sm:p-5">
-              <div className="relative aspect-video overflow-hidden rounded-[var(--radius-sm)] bg-muted">
-                {preview.mediaType === "video" ? (
-                  <video src={preview.url} className="h-full w-full object-contain" controls />
-                ) : (
-                  <Image
-                    src={preview.url}
-                    alt={preview.altText || preview.displayName}
-                    fill
-                    className="object-contain"
-                    sizes="640px"
-                    unoptimized={isRemoteSrc(preview.url)}
-                  />
-                )}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Display name" htmlFor="media-name">
-                  <Input
-                    id="media-name"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                  />
-                </Field>
-                <Field label="Type" htmlFor="media-type">
-                  <Input id="media-type" value={preview.mediaType} readOnly />
-                </Field>
-                <Field label="Alt text" htmlFor="media-alt" className="sm:col-span-2">
-                  <Textarea
-                    id="media-alt"
-                    value={editAlt}
-                    onChange={(e) => setEditAlt(e.target.value)}
-                    rows={2}
-                  />
-                </Field>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => void saveMeta()} disabled={savingMeta}>
-                  {savingMeta ? "Saving…" : "Save details"}
-                </Button>
-                <Button variant="secondary" onClick={() => void copyUrl()}>
-                  Copy URL
-                </Button>
-                <Button variant="danger" onClick={() => void removeMedia()} disabled={savingMeta}>
-                  Delete
-                </Button>
-                <Button variant="ghost" onClick={() => setPreview(null)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      ) : null}
+      {preview && mounted
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Media preview"
+            >
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/40"
+                aria-label="Close preview"
+                onClick={() => setPreview(null)}
+              />
+              <Card className="relative z-[71] max-h-[min(90vh,calc(100dvh-2rem))] w-full max-w-2xl overflow-y-auto rounded-[var(--radius-md)]">
+                <div className="border-b border-border px-4 py-3 sm:px-5">
+                  <p className="text-sm font-semibold">Media preview</p>
+                  <p className="text-xs text-muted-foreground">
+                    {preview.createdAt ? formatDateTime(preview.createdAt) : "—"}
+                  </p>
+                </div>
+                <div className="space-y-4 p-4 sm:p-5">
+                  <div className="relative aspect-video overflow-hidden rounded-[var(--radius-sm)] bg-muted">
+                    {preview.mediaType === "video" ? (
+                      <video src={preview.url} className="h-full w-full object-contain" controls />
+                    ) : (
+                      <Image
+                        src={preview.url}
+                        alt={preview.altText || preview.displayName}
+                        fill
+                        className="object-contain"
+                        sizes="640px"
+                        unoptimized={isRemoteSrc(preview.url)}
+                      />
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Display name" htmlFor="media-name">
+                      <Input
+                        id="media-name"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Type" htmlFor="media-type">
+                      <Input id="media-type" value={preview.mediaType} readOnly />
+                    </Field>
+                    <Field label="Alt text" htmlFor="media-alt" className="sm:col-span-2">
+                      <Textarea
+                        id="media-alt"
+                        value={editAlt}
+                        onChange={(e) => setEditAlt(e.target.value)}
+                        rows={2}
+                      />
+                    </Field>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => void saveMeta()} disabled={savingMeta}>
+                      {savingMeta ? "Saving…" : "Save details"}
+                    </Button>
+                    <Button variant="secondary" onClick={() => void copyUrl()}>
+                      Copy URL
+                    </Button>
+                    <Button variant="danger" onClick={() => void removeMedia()} disabled={savingMeta}>
+                      Delete
+                    </Button>
+                    <Button variant="ghost" onClick={() => setPreview(null)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
