@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MediaPicker } from "@/components/media-picker";
 import {
   Button,
   Card,
@@ -26,6 +27,9 @@ import {
 import { ApiError } from "@/lib/api/errors";
 import { toast } from "@/lib/toast";
 import { useAdminResource } from "@/lib/use-admin-resource";
+import type { AdminMediaAsset } from "@/types/admin";
+
+type GalleryField = "imageUrl" | "mobileImageUrl" | "videoUrl";
 
 type FieldKey =
   | "name"
@@ -132,6 +136,7 @@ export function MerchandisingEditor({
   const [form, setForm] = useState<AdminMerchItem>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [galleryField, setGalleryField] = useState<GalleryField | null>(null);
 
   function openAdd() {
     setAdding(true);
@@ -166,6 +171,27 @@ export function MerchandisingEditor({
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleGallerySelect(assets: AdminMediaAsset[]) {
+    const asset = assets[0];
+    if (!asset || !galleryField) return;
+    if (galleryField === "imageUrl") {
+      setForm((f) => ({
+        ...f,
+        imageUrl: asset.url,
+        imageAlt: f.imageAlt.trim() ? f.imageAlt : asset.altText || f.imageAlt,
+      }));
+    } else if (galleryField === "mobileImageUrl") {
+      setForm((f) => ({
+        ...f,
+        mobileImageUrl: asset.url,
+        mobileImageAlt: f.mobileImageAlt.trim() ? f.mobileImageAlt : asset.altText || f.mobileImageAlt,
+      }));
+    } else {
+      setForm((f) => ({ ...f, videoUrl: asset.url }));
+    }
+    setGalleryField(null);
   }
 
   async function remove(item: AdminMerchItem) {
@@ -281,12 +307,22 @@ export function MerchandisingEditor({
           ) : null}
           {fields.includes("imageUrl") ? (
             <Field label="Image URL (DAM)" htmlFor="merch-image">
-              <Input
-                id="merch-image"
-                value={form.imageUrl}
-                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                placeholder="https://… client DAM URL (CONFIGURE)"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="merch-image"
+                  className="min-w-0 flex-1"
+                  value={form.imageUrl}
+                  onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                  placeholder="https://… client DAM URL (CONFIGURE)"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setGalleryField("imageUrl")}
+                >
+                  Choose from Gallery
+                </Button>
+              </div>
             </Field>
           ) : null}
           {fields.includes("imageAlt") ? (
@@ -300,12 +336,22 @@ export function MerchandisingEditor({
           ) : null}
           {fields.includes("mobileImageUrl") ? (
             <Field label="Mobile image URL (DAM)" htmlFor="merch-mobile">
-              <Input
-                id="merch-mobile"
-                value={form.mobileImageUrl}
-                onChange={(e) => setForm({ ...form, mobileImageUrl: e.target.value })}
-                placeholder="Optional client DAM URL"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="merch-mobile"
+                  className="min-w-0 flex-1"
+                  value={form.mobileImageUrl}
+                  onChange={(e) => setForm({ ...form, mobileImageUrl: e.target.value })}
+                  placeholder="Optional client DAM URL"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setGalleryField("mobileImageUrl")}
+                >
+                  Choose from Gallery
+                </Button>
+              </div>
             </Field>
           ) : null}
           {fields.includes("mediaType") ? (
@@ -324,12 +370,22 @@ export function MerchandisingEditor({
           ) : null}
           {fields.includes("videoUrl") ? (
             <Field label="Video URL (DAM)" htmlFor="merch-video">
-              <Input
-                id="merch-video"
-                value={form.videoUrl}
-                onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
-                placeholder="https://… client DAM URL (CONFIGURE)"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="merch-video"
+                  className="min-w-0 flex-1"
+                  value={form.videoUrl}
+                  onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
+                  placeholder="https://… client DAM URL (CONFIGURE)"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setGalleryField("videoUrl")}
+                >
+                  Choose from Gallery
+                </Button>
+              </div>
             </Field>
           ) : null}
           {fields.includes("seoTitle") ? (
@@ -447,6 +503,21 @@ export function MerchandisingEditor({
           </div>
         </Card>
       ) : null}
+
+      <MediaPicker
+        open={galleryField !== null}
+        onClose={() => setGalleryField(null)}
+        mediaType={galleryField === "videoUrl" ? "video" : "image"}
+        multiple={false}
+        title={
+          galleryField === "videoUrl"
+            ? "Select video"
+            : galleryField === "mobileImageUrl"
+              ? "Select mobile image"
+              : "Select image"
+        }
+        onSelect={handleGallerySelect}
+      />
     </div>
   );
 }

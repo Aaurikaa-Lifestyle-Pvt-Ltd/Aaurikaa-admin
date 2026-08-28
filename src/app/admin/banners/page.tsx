@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Button,
   Card,
@@ -629,6 +629,32 @@ function SlideForm({
   setDraft: Dispatch<SetStateAction<SlideDraft>>;
   existing: AdminSlider | null;
 }) {
+  const [desktopObjectUrl, setDesktopObjectUrl] = useState<string | null>(null);
+  const [mobileObjectUrl, setMobileObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!draft.imageFile) {
+      setDesktopObjectUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(draft.imageFile);
+    setDesktopObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [draft.imageFile]);
+
+  useEffect(() => {
+    if (!draft.mobileImageFile) {
+      setMobileObjectUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(draft.mobileImageFile);
+    setMobileObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [draft.mobileImageFile]);
+
+  const desktopPreviewUrl = draft.imageFile ? desktopObjectUrl : existing?.image ?? null;
+  const mobilePreviewUrl = draft.mobileImageFile ? mobileObjectUrl : existing?.mobileImage ?? null;
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <Field label="Heading (optional)" htmlFor={`${slotKey}-heading`}>
@@ -685,8 +711,17 @@ function SlideForm({
             setDraft((d) => ({ ...d, imageFile: e.target.files?.[0] ?? null }))
           }
         />
-        {existing?.image && !draft.imageFile ? (
-          <p className="mt-1 text-xs text-muted-foreground">Current desktop kept if unchanged.</p>
+        {desktopPreviewUrl ? (
+          <div className="relative mt-2 aspect-[16/9] max-w-xs overflow-hidden rounded-[var(--radius-sm)] border border-border bg-muted">
+            <Image
+              src={desktopPreviewUrl}
+              alt={draft.heading || "Desktop banner preview"}
+              fill
+              className="object-cover"
+              sizes="320px"
+              unoptimized={isRemoteSrc(desktopPreviewUrl)}
+            />
+          </div>
         ) : null}
       </Field>
       <Field
@@ -704,8 +739,17 @@ function SlideForm({
             }))
           }
         />
-        {existing?.mobileImage && !draft.mobileImageFile ? (
-          <p className="mt-1 text-xs text-muted-foreground">Current mobile kept if unchanged.</p>
+        {mobilePreviewUrl ? (
+          <div className="relative mt-2 aspect-[9/16] max-w-[9rem] overflow-hidden rounded-[var(--radius-sm)] border border-border bg-muted">
+            <Image
+              src={mobilePreviewUrl}
+              alt={draft.heading || "Mobile banner preview"}
+              fill
+              className="object-cover"
+              sizes="144px"
+              unoptimized={isRemoteSrc(mobilePreviewUrl)}
+            />
+          </div>
         ) : null}
       </Field>
     </div>
