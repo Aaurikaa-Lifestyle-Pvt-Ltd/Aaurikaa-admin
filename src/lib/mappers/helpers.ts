@@ -1,5 +1,6 @@
 export const FULFILMENT_STATUSES = [
   "pending",
+  "paid",
   "processing",
   "shipped",
   "delivered",
@@ -8,6 +9,10 @@ export const FULFILMENT_STATUSES = [
 
 export function mapOrderStatusLabel(status?: string): string {
   switch (status) {
+    case "paid":
+      return "Paid";
+    case "processing":
+      return "Processing";
     case "shipped":
       return "Shipped";
     case "delivered":

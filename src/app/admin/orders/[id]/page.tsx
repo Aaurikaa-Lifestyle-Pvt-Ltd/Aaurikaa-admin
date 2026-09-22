@@ -102,6 +102,7 @@ function OrderDetailView({
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
+              disabled={!seed.invoiceAvailable}
               onClick={() => {
                 setSaveError(null);
                 downloadAdminInvoice(seed.id).catch((err: unknown) => {

@@ -113,6 +113,7 @@ function mapLine(raw: {
 export type MappedAdminOrder = AdminOrder & {
   backendStatus: string;
   paymentStatus?: string;
+  invoiceAvailable: boolean;
 };
 
 export function mapAdminOrder(raw: Record<string, unknown> | null | undefined): MappedAdminOrder | null {
@@ -135,6 +136,13 @@ export function mapAdminOrder(raw: Record<string, unknown> | null | undefined): 
   const paymentStatus = String(raw.paymentStatus ?? "");
   const pricing = mapAdminOrderPricing(raw);
 
+  const statusStr = String(raw.status ?? "");
+  const isPaymentConfirmed = paymentStatus.toLowerCase() === "success" || statusStr.toLowerCase() === "paid";
+  const invoiceAvailable =
+    typeof raw.invoiceAvailable === "boolean"
+      ? raw.invoiceAvailable && isPaymentConfirmed
+      : isPaymentConfirmed && items.length > 0 && (Number(raw.totalAmount) || 0) > 0;
+
   return {
     id,
     number: String(raw.invoiceNumber ?? id),
@@ -145,6 +153,7 @@ export function mapAdminOrder(raw: Record<string, unknown> | null | undefined): 
     date: String(raw.createdAt ?? new Date().toISOString()),
     status: mapOrderStatus(String(raw.status ?? "")),
     payment: [paymentMethod, paymentStatus].filter(Boolean).join(" · ") || "—",
+    invoiceAvailable,
     shipping: {
       name,
       address: formatAddress(shipping.address),

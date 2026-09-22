@@ -1,9 +1,14 @@
 export type OrderStatus =
   | "Pending"
+  | "Paid"
+  | "Processing"
   | "Shipped"
   | "Completed"
+  | "Delivered"
   | "Cancel"
-  | "Incompleted";
+  | "Cancelled"
+  | "Incompleted"
+  | "Failed";
 
 /** Product lifecycle labels (Admin). Backend: published/draft/inactive/archived/trash. */
 export type ProductStatus = "Published" | "Draft" | "Inactive" | "Archived" | "Trash";

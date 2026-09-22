@@ -51,6 +51,8 @@ export default function OrdersPage() {
             {(
               [
                 "Pending",
+                "Paid",
+                "Processing",
                 "Shipped",
                 "Completed",
                 "Cancel",

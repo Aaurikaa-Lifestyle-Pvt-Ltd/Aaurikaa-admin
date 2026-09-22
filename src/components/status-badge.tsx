@@ -3,10 +3,15 @@ import type { EntityStatus, OrderStatus, ProductStatus } from "@/types/admin";
 
 const orderStyles: Record<OrderStatus, string> = {
   Pending: "bg-amber-50 text-amber-800 border-amber-200",
+  Paid: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  Processing: "bg-sky-50 text-sky-800 border-sky-200",
   Shipped: "bg-blue-50 text-blue-800 border-blue-200",
   Completed: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  Delivered: "bg-emerald-50 text-emerald-800 border-emerald-200",
   Cancel: "bg-red-50 text-red-800 border-red-200",
+  Cancelled: "bg-red-50 text-red-800 border-red-200",
   Incompleted: "bg-slate-100 text-slate-700 border-slate-200",
+  Failed: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
 const productStyles: Record<ProductStatus, string> = {
